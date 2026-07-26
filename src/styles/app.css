@@ -193,6 +193,7 @@ p {
   border: 1px solid rgba(94, 59, 36, 0.16);
   background: rgba(255, 252, 244, 0.94);
   color: #3c2f28;
+  justify-content: space-between;
 }
 
 .player-chip__main,
@@ -209,6 +210,7 @@ p {
   padding: 0 14px 0 10px;
   background: transparent;
   color: inherit;
+  width: 100%;
 }
 
 .player-chip__remove {
