@@ -470,6 +470,15 @@ p {
   background: #fffdf7;
 }
 
+.italy-network-form {
+  display: grid;
+  gap: 12px;
+}
+
+.italy-network-list-block {
+  margin-top: 18px;
+}
+
 .score-panel {
   background: linear-gradient(180deg, rgba(33, 108, 92, 0.14), rgba(255, 250, 239, 0.92));
 }

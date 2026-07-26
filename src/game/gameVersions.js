@@ -1,6 +1,7 @@
 export const GAME_VERSIONS = {
   EUROPE: 'europe',
   JAPAN: 'japan',
+  ITALY: 'italy',
 }
 
 export const DEFAULT_GAME_VERSION = GAME_VERSIONS.EUROPE
@@ -22,7 +23,8 @@ export const VERSION_OPTIONS = [
     standingsBonusLabel: 'Longest',
     standingsExtraLabel: 'Stations',
     winnerLabel: 'Winner',
-    helpNote: 'Switching version starts a fresh score sheet for the selected map.',
+    helpNote: 'Each map keeps its own saved score sheet. Switching version restores that map.',
+    showExtraScore: true,
   },
   {
     value: GAME_VERSIONS.JAPAN,
@@ -40,7 +42,27 @@ export const VERSION_OPTIONS = [
     standingsBonusLabel: 'Bullet',
     standingsExtraLabel: 'Track',
     winnerLabel: 'Leader',
-    helpNote: 'Switching version starts a fresh score sheet for the selected map.',
+    helpNote: 'Each map keeps its own saved score sheet. Switching version restores that map.',
+    showExtraScore: true,
+  },
+  {
+    value: GAME_VERSIONS.ITALY,
+    label: 'Italy',
+    eyebrow: 'Ticket to Ride: Italy',
+    title: 'Italy Score Calculator',
+    description: 'Scores regular routes, destination tickets, and the Italy regions bonus for each connected network.',
+    routeDescription: 'Enter your claimed route counts. Ferry routes still score by route length like normal routes.',
+    ticketDescription: 'Completed tickets add points, failed tickets subtract points.',
+    bonusTitle: 'Italy Regions Bonus',
+    bonusDescription: 'Italy scores connected region networks instead of longest route or station bonuses.',
+    routeScoreLabel: 'Route Points',
+    bonusScoreLabel: 'Regions Bonus',
+    extraScoreLabel: 'Details',
+    standingsBonusLabel: 'Regions',
+    standingsExtraLabel: 'Details',
+    winnerLabel: 'Winner',
+    helpNote: 'Each map keeps its own saved score sheet. Switching version restores that map.',
+    showExtraScore: false,
   },
 ]
 

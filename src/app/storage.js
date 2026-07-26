@@ -34,6 +34,12 @@ function normalizePlayer(player, index) {
     longestPath: Boolean(player?.longestPath),
     unusedStations: Number.parseInt(player?.unusedStations ?? 0, 10) || 0,
     bulletTrainProgress: Number.parseInt(player?.bulletTrainProgress ?? 0, 10) || 0,
+    italyNetworks: Array.isArray(player?.italyNetworks)
+      ? player.italyNetworks.map((network, networkIndex) => ({
+          id: Number.isInteger(network?.id) ? network.id : networkIndex + 1,
+          regions: Number.parseInt(network?.regions ?? 0, 10) || 0,
+        }))
+      : [],
   }
 }
 

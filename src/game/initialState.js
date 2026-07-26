@@ -16,6 +16,7 @@ export function createEmptyPlayer(id, name = `Player ${id}`) {
     longestPath: false,
     unusedStations: 0,
     bulletTrainProgress: 0,
+    italyNetworks: [],
   }
 }
 

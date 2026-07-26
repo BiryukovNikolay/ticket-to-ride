@@ -1,4 +1,5 @@
 import {
+  ITALY_REGION_BONUS,
   JAPAN_BULLET_TRAIN_BONUS_BY_PLAYER_COUNT,
   JAPAN_NON_PARTICIPANT_PENALTY,
   LONGEST_PATH_BONUS,
@@ -74,6 +75,26 @@ function calculateJapanBulletBonuses(players) {
   return bonuses
 }
 
+export function getItalyRegionBonusForCount(regions) {
+  const normalizedRegions = normalizeNumber(regions)
+
+  if (normalizedRegions < 5) {
+    return 0
+  }
+
+  if (normalizedRegions >= 15) {
+    return ITALY_REGION_BONUS[15]
+  }
+
+  return ITALY_REGION_BONUS[normalizedRegions] ?? 0
+}
+
+function calculateItalyRegionBonus(italyNetworks) {
+  return italyNetworks.reduce((total, network) => {
+    return total + getItalyRegionBonusForCount(network.regions)
+  }, 0)
+}
+
 export function calculateFinalScore(player, context = {}) {
   const routeScore = calculateRouteScore(player.routeCounts)
   const ticketScore = calculateTicketScore(player.tickets)
@@ -91,6 +112,20 @@ export function calculateFinalScore(player, context = {}) {
       bonusScore: bulletTrainBonus,
       extraScore: bulletTrainTrack,
       totalScore: routeScore + ticketScore + bulletTrainBonus,
+      completedTickets: player.tickets.filter((ticket) => ticket.completed).length,
+      failedTickets: player.tickets.filter((ticket) => !ticket.completed).length,
+    }
+  }
+
+  if (gameVersion === GAME_VERSIONS.ITALY) {
+    const regionsBonus = calculateItalyRegionBonus(player.italyNetworks ?? [])
+
+    return {
+      routeScore,
+      ticketScore,
+      bonusScore: regionsBonus,
+      extraScore: 0,
+      totalScore: routeScore + ticketScore + regionsBonus,
       completedTickets: player.tickets.filter((ticket) => ticket.completed).length,
       failedTickets: player.tickets.filter((ticket) => !ticket.completed).length,
     }
@@ -142,6 +177,18 @@ function compareJapanPlayers(leftScore, rightScore) {
   return 0
 }
 
+function compareItalyPlayers(leftScore, rightScore) {
+  if (leftScore.totalScore !== rightScore.totalScore) {
+    return rightScore.totalScore - leftScore.totalScore
+  }
+
+  if (leftScore.completedTickets !== rightScore.completedTickets) {
+    return rightScore.completedTickets - leftScore.completedTickets
+  }
+
+  return 0
+}
+
 export function rankPlayers(players, gameVersion) {
   const playersWithScores = players.map((player) => ({
     player,
@@ -151,6 +198,10 @@ export function rankPlayers(players, gameVersion) {
   return playersWithScores.sort((leftEntry, rightEntry) => {
     if (gameVersion === GAME_VERSIONS.JAPAN) {
       return compareJapanPlayers(leftEntry.score, rightEntry.score)
+    }
+
+    if (gameVersion === GAME_VERSIONS.ITALY) {
+      return compareItalyPlayers(leftEntry.score, rightEntry.score)
     }
 
     return compareEuropePlayers(leftEntry.score, rightEntry.score, leftEntry.player, rightEntry.player)
@@ -169,6 +220,10 @@ export function getWinningPlayers(players, gameVersion) {
   return ranking.filter((entry) => {
     if (gameVersion === GAME_VERSIONS.JAPAN) {
       return compareJapanPlayers(entry.score, firstEntry.score) === 0
+    }
+
+    if (gameVersion === GAME_VERSIONS.ITALY) {
+      return compareItalyPlayers(entry.score, firstEntry.score) === 0
     }
 
     return compareEuropePlayers(entry.score, firstEntry.score, entry.player, firstEntry.player) === 0

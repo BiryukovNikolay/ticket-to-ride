@@ -37,6 +37,7 @@ export function createAppTemplate() {
               <select id="game-version">
                 <option value="europe">Europe</option>
                 <option value="japan">Japan</option>
+                <option value="italy">Italy</option>
               </select>
             </label>
             <button class="button button--ghost" id="new-game-button" type="button">New Game</button>
@@ -137,6 +138,25 @@ export function createAppTemplate() {
             </label>
           </div>
 
+          <div id="italy-rules-section" hidden>
+            <form class="italy-network-form" id="italy-network-form">
+              <label class="station-input" for="italy-network-regions">
+                <span>Regions in this network</span>
+                <input id="italy-network-regions" type="number" min="0" max="17" value="0" placeholder="0" />
+                <p>Add one connected network at a time. Example: if a network covers 9 regions, it scores 11 points.</p>
+              </label>
+              <button class="button" type="submit">Add Network</button>
+            </form>
+
+            <div class="ticket-list-block italy-network-list-block">
+              <div class="ticket-list-block__head">
+                <h3>Region Networks</h3>
+                <p id="italy-network-empty-state">No region networks added yet.</p>
+              </div>
+              <ul id="italy-network-list" class="ticket-list"></ul>
+            </div>
+          </div>
+
           <button class="button button--ghost" id="reset-button" type="button">Reset Current Player</button>
         </section>
 
@@ -193,7 +213,7 @@ export function createAppTemplate() {
                 <th>Route</th>
                 <th>Tickets</th>
                 <th id="standings-bonus-label">Longest</th>
-                <th id="standings-extra-label">Stations</th>
+                <th id="standings-extra-header"><span id="standings-extra-label">Stations</span></th>
                 <th>Total</th>
                 <th>Edit</th>
               </tr>

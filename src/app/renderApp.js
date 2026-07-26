@@ -1,4 +1,4 @@
-import { calculateFinalScore, getWinningPlayers } from '../game/calculateScore.js'
+import { calculateFinalScore, getItalyRegionBonusForCount, getWinningPlayers } from '../game/calculateScore.js'
 import { DEFAULT_GAME_VERSION, GAME_VERSIONS, getVersionConfig } from '../game/gameVersions.js'
 import { createEmptyPlayer, createInitialState } from '../game/initialState.js'
 import { clearStoredState, loadStoredState, loadStoredStateForVersion, saveStoredState } from './storage.js'
@@ -6,6 +6,7 @@ import { createAppTemplate } from './template.js'
 
 let ticketId = 0
 let playerId = 1
+let italyNetworkId = 0
 
 function sanitizeNumberInput(input) {
   const parsedValue = Number.parseInt(input.value, 10)
@@ -28,6 +29,13 @@ function getMaxTicketId(players) {
   }, 0)
 }
 
+function getMaxItalyNetworkId(players) {
+  return players.reduce((maxNetworkId, player) => {
+    const playerMaxNetworkId = (player.italyNetworks ?? []).reduce((currentMax, network) => Math.max(currentMax, network.id), 0)
+    return Math.max(maxNetworkId, playerMaxNetworkId)
+  }, 0)
+}
+
 function formatPlayerCount(count) {
   return `${count} player${count === 1 ? '' : 's'}`
 }
@@ -42,11 +50,16 @@ function loadPlayerIntoForm(elements, player) {
   elements.unusedStations.value = String(player.unusedStations ?? 0)
   elements.bulletTrainProgress.value = String(player.bulletTrainProgress ?? 0)
   elements.ticketForm.reset()
+  elements.italyNetworkForm?.reset()
+  if (elements.italyNetworkRegions) {
+    elements.italyNetworkRegions.value = '0'
+  }
 }
 
 function renderVersionUi(elements, state) {
   const versionConfig = getVersionConfig(state.gameVersion)
   const isJapan = state.gameVersion === GAME_VERSIONS.JAPAN
+  const isEurope = state.gameVersion === GAME_VERSIONS.EUROPE
 
   elements.gameVersion.value = versionConfig.value
   elements.versionEyebrow.textContent = versionConfig.eyebrow
@@ -66,8 +79,11 @@ function renderVersionUi(elements, state) {
   elements.standingsExtraLabel.textContent = versionConfig.standingsExtraLabel
   elements.winnerLabel.textContent = versionConfig.winnerLabel
 
-  elements.europeRulesSection.hidden = isJapan
+  elements.europeRulesSection.hidden = !isEurope
   elements.japanRulesSection.hidden = !isJapan
+  elements.italyRulesSection.hidden = state.gameVersion !== GAME_VERSIONS.ITALY
+  elements.extraScoreRow.hidden = versionConfig.showExtraScore === false
+  elements.standingsExtraHeader.hidden = versionConfig.showExtraScore === false
 }
 
 function renderPlayerList(elements, state) {
@@ -144,6 +160,38 @@ function renderTicketList(elements, player) {
     .join('')
 }
 
+function renderItalyNetworkList(elements, player) {
+  const italyNetworks = player.italyNetworks ?? []
+
+  if (italyNetworks.length === 0) {
+    elements.italyNetworkList.innerHTML = ''
+    elements.italyNetworkEmptyState.hidden = false
+    return
+  }
+
+  elements.italyNetworkEmptyState.hidden = true
+  elements.italyNetworkList.innerHTML = italyNetworks
+    .map((network, index) => {
+      const networkPoints = getItalyRegionBonusForCount(network.regions)
+
+      return `
+        <li class="ticket-item">
+          <div>
+            <strong>Network ${index + 1}</strong>
+            <p>${network.regions} regions linked ${networkPoints > 0 ? `· ${networkPoints} pts` : '· 0 pts'}</p>
+          </div>
+          <div class="ticket-item__meta">
+            <span class="ticket-points ${networkPoints > 0 ? 'ticket-points--positive' : 'ticket-points--negative'}">
+              ${networkPoints > 0 ? `+${networkPoints}` : '0'}
+            </span>
+            <button class="button button--tiny button--ghost" type="button" data-italy-network-id="${network.id}">Remove</button>
+          </div>
+        </li>
+      `
+    })
+    .join('')
+}
+
 function renderScore(elements, state, player) {
   const score = calculateFinalScore(player, { gameVersion: state.gameVersion, players: state.players })
 
@@ -156,6 +204,8 @@ function renderScore(elements, state, player) {
 }
 
 function renderStandings(elements, state) {
+  const showExtraScore = getVersionConfig(state.gameVersion).showExtraScore !== false
+
   elements.standingsBody.innerHTML = state.players
     .map((player) => {
       const score = calculateFinalScore(player, { gameVersion: state.gameVersion, players: state.players })
@@ -166,7 +216,7 @@ function renderStandings(elements, state) {
           <td>${score.routeScore}</td>
           <td>${score.ticketScore}</td>
           <td>${score.bonusScore}</td>
-          <td>${score.extraScore}</td>
+          ${showExtraScore ? `<td>${score.extraScore}</td>` : ''}
           <td><strong>${score.totalScore}</strong></td>
           <td>
             <button class="button button--tiny button--ghost" type="button" data-edit-player-id="${player.id}">
@@ -211,6 +261,7 @@ function getElements(root) {
     bonusDescription: root.querySelector('#bonus-description'),
     europeRulesSection: root.querySelector('#europe-rules-section'),
     japanRulesSection: root.querySelector('#japan-rules-section'),
+    italyRulesSection: root.querySelector('#italy-rules-section'),
     europeStationsField: root.querySelector('#europe-stations-field'),
     japanBulletField: root.querySelector('#japan-bullet-field'),
     longestPathField: root.querySelector('#longest-path-field'),
@@ -235,6 +286,10 @@ function getElements(root) {
     ticketStatus: root.querySelector('#ticket-status'),
     ticketList: root.querySelector('#ticket-list'),
     ticketEmptyState: root.querySelector('#ticket-empty-state'),
+    italyNetworkForm: root.querySelector('#italy-network-form'),
+    italyNetworkRegions: root.querySelector('#italy-network-regions'),
+    italyNetworkList: root.querySelector('#italy-network-list'),
+    italyNetworkEmptyState: root.querySelector('#italy-network-empty-state'),
     longestPath: root.querySelector('#longest-path'),
     unusedStations: root.querySelector('#unused-stations'),
     bulletTrainProgress: root.querySelector('#bullet-train-progress'),
@@ -242,11 +297,13 @@ function getElements(root) {
     routeScore: root.querySelector('#route-score'),
     ticketScore: root.querySelector('#ticket-score'),
     bonusScore: root.querySelector('#bonus-score'),
+    extraScoreRow: root.querySelector('#extra-score-row'),
     extraScore: root.querySelector('#extra-score'),
     totalScore: root.querySelector('#total-score'),
     ticketSummary: root.querySelector('#ticket-summary'),
     winnerName: root.querySelector('#winner-name'),
     winnerMeta: root.querySelector('#winner-meta'),
+    standingsExtraHeader: root.querySelector('#standings-extra-header'),
     standingsBody: root.querySelector('#standings-body'),
     routeInputs: [...root.querySelectorAll('[data-route-length]')],
   }
@@ -266,6 +323,7 @@ function resetPlayer(player) {
   player.longestPath = freshPlayer.longestPath
   player.unusedStations = freshPlayer.unusedStations
   player.bulletTrainProgress = freshPlayer.bulletTrainProgress
+  player.italyNetworks = freshPlayer.italyNetworks
 }
 
 function replaceState(state, nextState) {
@@ -278,6 +336,7 @@ export function initApp(root) {
   const state = loadStoredState()
   playerId = getMaxPlayerId(state.players)
   ticketId = getMaxTicketId(state.players)
+  italyNetworkId = getMaxItalyNetworkId(state.players)
 
   root.innerHTML = createAppTemplate()
   const elements = getElements(root)
@@ -288,6 +347,7 @@ export function initApp(root) {
     renderVersionUi(elements, state)
     renderPlayerList(elements, state)
     renderTicketList(elements, currentPlayer)
+    renderItalyNetworkList(elements, currentPlayer)
     renderScore(elements, state, currentPlayer)
     renderStandings(elements, state)
     renderWinner(elements, state)
@@ -305,6 +365,7 @@ export function initApp(root) {
     replaceState(state, createInitialState(gameVersion))
     playerId = getMaxPlayerId(state.players)
     ticketId = 0
+    italyNetworkId = 0
     clearStoredState(gameVersion)
     loadPlayerIntoForm(elements, getCurrentPlayer(state))
     syncRouteCounts(elements, getCurrentPlayer(state))
@@ -315,6 +376,7 @@ export function initApp(root) {
     replaceState(state, loadStoredStateForVersion(gameVersion))
     playerId = getMaxPlayerId(state.players)
     ticketId = getMaxTicketId(state.players)
+    italyNetworkId = getMaxItalyNetworkId(state.players)
     loadPlayerIntoForm(elements, getCurrentPlayer(state))
     syncRouteCounts(elements, getCurrentPlayer(state))
     rerender()
@@ -406,6 +468,40 @@ export function initApp(root) {
     const ticketIdToRemove = Number.parseInt(button.dataset.ticketId, 10)
     const currentPlayer = getCurrentPlayer(state)
     currentPlayer.tickets = currentPlayer.tickets.filter((ticket) => ticket.id !== ticketIdToRemove)
+    rerender()
+  })
+
+  elements.italyNetworkForm.addEventListener('submit', (event) => {
+    event.preventDefault()
+
+    const regions = sanitizeNumberInput(elements.italyNetworkRegions)
+
+    if (regions === 0) {
+      elements.italyNetworkRegions.focus()
+      return
+    }
+
+    italyNetworkId += 1
+    getCurrentPlayer(state).italyNetworks.push({
+      id: italyNetworkId,
+      regions: Math.min(17, regions),
+    })
+
+    elements.italyNetworkForm.reset()
+    elements.italyNetworkRegions.value = '0'
+    rerender()
+  })
+
+  elements.italyNetworkList.addEventListener('click', (event) => {
+    const button = event.target.closest('[data-italy-network-id]')
+
+    if (!button) {
+      return
+    }
+
+    const networkIdToRemove = Number.parseInt(button.dataset.italyNetworkId, 10)
+    const currentPlayer = getCurrentPlayer(state)
+    currentPlayer.italyNetworks = currentPlayer.italyNetworks.filter((network) => network.id !== networkIdToRemove)
     rerender()
   })
 

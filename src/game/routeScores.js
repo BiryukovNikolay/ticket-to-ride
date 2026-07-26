@@ -18,3 +18,17 @@ export const JAPAN_BULLET_TRAIN_BONUS_BY_PLAYER_COUNT = {
 }
 
 export const JAPAN_NON_PARTICIPANT_PENALTY = -20
+
+export const ITALY_REGION_BONUS = {
+  5: 1,
+  6: 2,
+  7: 4,
+  8: 7,
+  9: 11,
+  10: 16,
+  11: 22,
+  12: 29,
+  13: 37,
+  14: 46,
+  15: 56,
+}
