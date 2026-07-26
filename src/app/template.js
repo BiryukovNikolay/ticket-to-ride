@@ -18,10 +18,10 @@ export function createAppTemplate() {
   return `
     <div class="page-shell">
       <header class="hero-block">
-        <p class="eyebrow">Ticket to Ride: Classic</p>
-        <h1>Final Score Calculator</h1>
-        <p class="hero-copy">
-          Scores classic endgame rules: routes, destination tickets, and the longest continuous path bonus.
+        <p class="eyebrow" id="version-eyebrow">Ticket to Ride: Europe</p>
+        <h1 id="hero-title">Europe Score Calculator</h1>
+        <p class="hero-copy" id="hero-copy">
+          Scores routes, destination tickets, unused stations, and the European Express longest route bonus.
         </p>
       </header>
 
@@ -32,10 +32,18 @@ export function createAppTemplate() {
             <p>Add players one by one, switch back anytime, and keep editing their scores.</p>
           </div>
           <div class="players-panel__actions">
+            <label class="version-picker" for="game-version">
+              <span>Map Version</span>
+              <select id="game-version">
+                <option value="europe">Europe</option>
+                <option value="japan">Japan</option>
+              </select>
+            </label>
             <button class="button button--ghost" id="new-game-button" type="button">New Game</button>
             <button class="button" id="add-player-button" type="button">Add Next Player</button>
           </div>
         </div>
+        <p class="players-panel__note" id="version-help-note">Switching version starts a fresh score sheet for the selected map.</p>
 
         <div class="player-editor">
           <label class="player-editor__name" for="player-name">
@@ -58,7 +66,7 @@ export function createAppTemplate() {
         <section class="panel">
           <div class="panel__header">
             <h2>Routes</h2>
-            <p>Enter how many routes of each length were completed.</p>
+            <p id="route-description">Enter only your regular route claims. Ferries and tunnels still score by route length.</p>
           </div>
           <div class="route-grid">
             ${buildRouteInputs()}
@@ -68,7 +76,7 @@ export function createAppTemplate() {
         <section class="panel panel--accent">
           <div class="panel__header">
             <h2>Destination Tickets</h2>
-            <p>Completed tickets add points, failed tickets subtract points.</p>
+            <p id="ticket-description">Completed tickets add points, failed tickets subtract points.</p>
           </div>
 
           <form class="ticket-form" id="ticket-form">
@@ -101,23 +109,33 @@ export function createAppTemplate() {
 
         <section class="panel panel--narrow">
           <div class="panel__header">
-            <h2>Bonus</h2>
-            <p>Optional bonus inputs, including unused stations at ${UNUSED_STATION_POINTS} points each.</p>
+            <h2 id="bonus-title">Europe Bonuses</h2>
+            <p id="bonus-description">Europe uses the longest route bonus and ${UNUSED_STATION_POINTS} points for each unused station.</p>
           </div>
 
-          <label class="station-input" for="unused-stations">
-            <span>Unused Stations</span>
-            <input id="unused-stations" type="number" min="0" max="3" value="0" />
-            <p>Use this only if you want to include the Europe station rule.</p>
-          </label>
+          <div id="europe-rules-section">
+            <label class="station-input" id="europe-stations-field" for="unused-stations">
+              <span>Unused Stations</span>
+              <input id="unused-stations" type="number" min="0" max="3" value="0" />
+              <p>Use this only for Ticket to Ride: Europe.</p>
+            </label>
 
-          <label class="toggle-row" for="longest-path">
-            <div>
-              <strong>Longest Path</strong>
-              <p>Add the ${LONGEST_PATH_BONUS}-point bonus.</p>
-            </div>
-            <input id="longest-path" type="checkbox" />
-          </label>
+            <label class="toggle-row" id="longest-path-field" for="longest-path">
+              <div>
+                <strong id="bonus-toggle-title">Longest Route</strong>
+                <p>Add the ${LONGEST_PATH_BONUS}-point bonus.</p>
+              </div>
+              <input id="longest-path" type="checkbox" />
+            </label>
+          </div>
+
+          <div id="japan-rules-section" hidden>
+            <label class="station-input" id="japan-bullet-field" for="bullet-train-progress">
+              <span>Bullet Train Track Position</span>
+              <input id="bullet-train-progress" type="number" min="0" value="0" />
+              <p>Enter your final position on the shared Bullet Train Track. 0 means you did not participate and take -20.</p>
+            </label>
+          </div>
 
           <button class="button button--ghost" id="reset-button" type="button">Reset Current Player</button>
         </section>
@@ -125,25 +143,25 @@ export function createAppTemplate() {
         <section class="panel score-panel">
           <div class="panel__header">
             <h2>Summary</h2>
-            <p>Final score breakdown across all classic scoring rules.</p>
+            <p id="summary-description">Final score breakdown across all active scoring rules for this map.</p>
           </div>
 
           <div class="score-stack">
             <div class="score-row">
-              <span>Route Points</span>
+              <span id="route-score-label">Route Points</span>
               <strong id="route-score">0</strong>
             </div>
             <div class="score-row">
-              <span>Ticket Points</span>
+              <span id="ticket-score-label">Ticket Points</span>
               <strong id="ticket-score">0</strong>
             </div>
             <div class="score-row">
-              <span>Longest Path Bonus</span>
+              <span id="bonus-score-label">Longest Route Bonus</span>
               <strong id="bonus-score">0</strong>
             </div>
-            <div class="score-row">
-              <span>Unused Stations</span>
-              <strong id="station-score">0</strong>
+            <div class="score-row" id="extra-score-row">
+              <span id="extra-score-label">Unused Stations</span>
+              <strong id="extra-score">0</strong>
             </div>
             <div class="score-row score-row--total">
               <span>Final Score</span>
@@ -162,7 +180,7 @@ export function createAppTemplate() {
         </div>
 
         <div class="winner-banner" id="winner-banner">
-          <span class="winner-banner__label">Winner</span>
+          <span class="winner-banner__label" id="winner-label">Winner</span>
           <strong id="winner-name">Player 1</strong>
           <p id="winner-meta">Leading with 0 points.</p>
         </div>
@@ -174,8 +192,8 @@ export function createAppTemplate() {
                 <th>Player</th>
                 <th>Route</th>
                 <th>Tickets</th>
-                <th>Bonus</th>
-                <th>Stations</th>
+                <th id="standings-bonus-label">Longest</th>
+                <th id="standings-extra-label">Stations</th>
                 <th>Total</th>
                 <th>Edit</th>
               </tr>

@@ -1,6 +1,12 @@
 import { createEmptyPlayer, createInitialState } from '../game/initialState.js'
+import { DEFAULT_GAME_VERSION, GAME_VERSIONS } from '../game/gameVersions.js'
 
-const STORAGE_KEY = 'ticket-to-ride-classic-score-state'
+const STORAGE_KEY_PREFIX = 'ticket-to-ride-score-state'
+const ACTIVE_VERSION_KEY = 'ticket-to-ride-active-version'
+
+function getStorageKey(gameVersion) {
+  return `${STORAGE_KEY_PREFIX}:${gameVersion}`
+}
 
 function normalizePlayer(player, index) {
   const fallbackId = index + 1
@@ -27,11 +33,15 @@ function normalizePlayer(player, index) {
       : [],
     longestPath: Boolean(player?.longestPath),
     unusedStations: Number.parseInt(player?.unusedStations ?? 0, 10) || 0,
+    bulletTrainProgress: Number.parseInt(player?.bulletTrainProgress ?? 0, 10) || 0,
   }
 }
 
 function normalizeState(savedState) {
-  const fallbackState = createInitialState()
+  const normalizedVersion = Object.values(GAME_VERSIONS).includes(savedState?.gameVersion)
+    ? savedState.gameVersion
+    : DEFAULT_GAME_VERSION
+  const fallbackState = createInitialState(normalizedVersion)
 
   if (!savedState || !Array.isArray(savedState.players) || savedState.players.length === 0) {
     return fallbackState
@@ -41,29 +51,46 @@ function normalizeState(savedState) {
   const currentPlayerExists = players.some((player) => player.id === savedState.currentPlayerId)
 
   return {
+    gameVersion: normalizedVersion,
     players,
     currentPlayerId: currentPlayerExists ? savedState.currentPlayerId : players[0].id,
   }
 }
 
 export function loadStoredState() {
+  const activeVersion = window.localStorage.getItem(ACTIVE_VERSION_KEY)
+  const normalizedVersion = Object.values(GAME_VERSIONS).includes(activeVersion)
+    ? activeVersion
+    : DEFAULT_GAME_VERSION
+
+  return loadStoredStateForVersion(normalizedVersion)
+}
+
+export function loadStoredStateForVersion(gameVersion = DEFAULT_GAME_VERSION) {
   try {
-    const rawState = window.localStorage.getItem(STORAGE_KEY)
+    const rawState = window.localStorage.getItem(getStorageKey(gameVersion))
 
     if (!rawState) {
-      return createInitialState()
+      return createInitialState(gameVersion)
     }
 
     return normalizeState(JSON.parse(rawState))
   } catch {
-    return createInitialState()
+    return createInitialState(gameVersion)
   }
 }
 
 export function saveStoredState(state) {
-  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state))
+  window.localStorage.setItem(ACTIVE_VERSION_KEY, state.gameVersion)
+  window.localStorage.setItem(getStorageKey(state.gameVersion), JSON.stringify(state))
 }
 
-export function clearStoredState() {
-  window.localStorage.removeItem(STORAGE_KEY)
+export function clearStoredState(gameVersion = DEFAULT_GAME_VERSION) {
+  window.localStorage.removeItem(getStorageKey(gameVersion))
+
+  const activeVersion = window.localStorage.getItem(ACTIVE_VERSION_KEY)
+
+  if (activeVersion === gameVersion) {
+    window.localStorage.removeItem(ACTIVE_VERSION_KEY)
+  }
 }

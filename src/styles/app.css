@@ -108,6 +108,30 @@ p {
   gap: 10px;
   flex-wrap: wrap;
   justify-content: end;
+  align-items: end;
+}
+
+.version-picker {
+  display: grid;
+  gap: 6px;
+}
+
+.version-picker span,
+.players-panel__note {
+  color: var(--ink-soft);
+}
+
+.version-picker select {
+  min-width: 150px;
+  min-height: 44px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(94, 59, 36, 0.18);
+  background: #fffdf7;
+}
+
+.players-panel__note {
+  margin-top: 12px;
 }
 
 .player-editor {

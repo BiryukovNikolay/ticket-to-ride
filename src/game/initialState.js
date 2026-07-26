@@ -1,3 +1,5 @@
+import { DEFAULT_GAME_VERSION } from './gameVersions.js'
+
 export function createEmptyPlayer(id, name = `Player ${id}`) {
   return {
     id,
@@ -13,11 +15,13 @@ export function createEmptyPlayer(id, name = `Player ${id}`) {
     tickets: [],
     longestPath: false,
     unusedStations: 0,
+    bulletTrainProgress: 0,
   }
 }
 
-export function createInitialState() {
+export function createInitialState(gameVersion = DEFAULT_GAME_VERSION) {
   return {
+    gameVersion,
     players: [createEmptyPlayer(1)],
     currentPlayerId: 1,
   }

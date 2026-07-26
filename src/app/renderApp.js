@@ -1,6 +1,7 @@
+import { calculateFinalScore, getWinningPlayers } from '../game/calculateScore.js'
+import { DEFAULT_GAME_VERSION, GAME_VERSIONS, getVersionConfig } from '../game/gameVersions.js'
 import { createEmptyPlayer, createInitialState } from '../game/initialState.js'
-import { calculateFinalScore } from '../game/calculateScore.js'
-import { clearStoredState, loadStoredState, saveStoredState } from './storage.js'
+import { clearStoredState, loadStoredState, loadStoredStateForVersion, saveStoredState } from './storage.js'
 import { createAppTemplate } from './template.js'
 
 let ticketId = 0
@@ -39,7 +40,34 @@ function loadPlayerIntoForm(elements, player) {
   })
   elements.longestPath.checked = player.longestPath
   elements.unusedStations.value = String(player.unusedStations ?? 0)
+  elements.bulletTrainProgress.value = String(player.bulletTrainProgress ?? 0)
   elements.ticketForm.reset()
+}
+
+function renderVersionUi(elements, state) {
+  const versionConfig = getVersionConfig(state.gameVersion)
+  const isJapan = state.gameVersion === GAME_VERSIONS.JAPAN
+
+  elements.gameVersion.value = versionConfig.value
+  elements.versionEyebrow.textContent = versionConfig.eyebrow
+  elements.heroTitle.textContent = versionConfig.title
+  elements.heroCopy.textContent = versionConfig.description
+  elements.versionHelpNote.textContent = versionConfig.helpNote
+  elements.routeDescription.textContent = versionConfig.routeDescription
+  elements.ticketDescription.textContent = versionConfig.ticketDescription
+  elements.bonusTitle.textContent = versionConfig.bonusTitle
+  elements.bonusDescription.textContent = versionConfig.bonusDescription
+  elements.summaryDescription.textContent = 'Final score breakdown across all active scoring rules for this map.'
+  elements.routeScoreLabel.textContent = versionConfig.routeScoreLabel
+  elements.ticketScoreLabel.textContent = 'Ticket Points'
+  elements.bonusScoreLabel.textContent = versionConfig.bonusScoreLabel
+  elements.extraScoreLabel.textContent = versionConfig.extraScoreLabel
+  elements.standingsBonusLabel.textContent = versionConfig.standingsBonusLabel
+  elements.standingsExtraLabel.textContent = versionConfig.standingsExtraLabel
+  elements.winnerLabel.textContent = versionConfig.winnerLabel
+
+  elements.europeRulesSection.hidden = isJapan
+  elements.japanRulesSection.hidden = !isJapan
 }
 
 function renderPlayerList(elements, state) {
@@ -48,11 +76,7 @@ function renderPlayerList(elements, state) {
     .map(
       (player, index) => `
         <div class="player-chip ${player.id === state.currentPlayerId ? 'player-chip--active' : ''}">
-          <button
-            class="player-chip__main"
-            type="button"
-            data-player-id="${player.id}"
-          >
+          <button class="player-chip__main" type="button" data-player-id="${player.id}">
             <span class="player-chip__order">${index + 1}</span>
             <span>${player.name}</span>
           </button>
@@ -120,13 +144,13 @@ function renderTicketList(elements, player) {
     .join('')
 }
 
-function renderScore(elements, player) {
-  const score = calculateFinalScore(player)
+function renderScore(elements, state, player) {
+  const score = calculateFinalScore(player, { gameVersion: state.gameVersion, players: state.players })
 
   elements.routeScore.textContent = String(score.routeScore)
   elements.ticketScore.textContent = String(score.ticketScore)
-  elements.bonusScore.textContent = String(score.longestPathBonus)
-  elements.stationScore.textContent = String(score.stationScore)
+  elements.bonusScore.textContent = String(score.bonusScore)
+  elements.extraScore.textContent = String(score.extraScore)
   elements.totalScore.textContent = String(score.totalScore)
   elements.ticketSummary.textContent = `${score.completedTickets} completed, ${score.failedTickets} failed.`
 }
@@ -134,15 +158,15 @@ function renderScore(elements, player) {
 function renderStandings(elements, state) {
   elements.standingsBody.innerHTML = state.players
     .map((player) => {
-      const score = calculateFinalScore(player)
+      const score = calculateFinalScore(player, { gameVersion: state.gameVersion, players: state.players })
 
       return `
         <tr class="${player.id === state.currentPlayerId ? 'standings-table__row--active' : ''}">
           <td>${player.name}</td>
           <td>${score.routeScore}</td>
           <td>${score.ticketScore}</td>
-          <td>${score.longestPathBonus}</td>
-          <td>${score.stationScore}</td>
+          <td>${score.bonusScore}</td>
+          <td>${score.extraScore}</td>
           <td><strong>${score.totalScore}</strong></td>
           <td>
             <button class="button button--tiny button--ghost" type="button" data-edit-player-id="${player.id}">
@@ -156,25 +180,49 @@ function renderStandings(elements, state) {
 }
 
 function renderWinner(elements, state) {
-  const playersWithScores = state.players.map((player) => ({
-    player,
-    score: calculateFinalScore(player),
-  }))
-  const highestScore = Math.max(...playersWithScores.map(({ score }) => score.totalScore))
-  const winners = playersWithScores.filter(({ score }) => score.totalScore === highestScore)
+  const winners = getWinningPlayers(state.players, state.gameVersion)
 
-  if (winners.length === 1) {
-    elements.winnerName.textContent = winners[0].player.name
-    elements.winnerMeta.textContent = `Leading with ${highestScore} points.`
+  if (winners.length === 0) {
+    elements.winnerName.textContent = 'No players'
+    elements.winnerMeta.textContent = 'Add a player to start scoring.'
     return
   }
 
-  elements.winnerName.textContent = winners.map(({ player }) => player.name).join(', ')
-  elements.winnerMeta.textContent = `Tie at ${highestScore} points.`
+  if (winners.length === 1) {
+    elements.winnerName.textContent = winners[0].player.name
+    elements.winnerMeta.textContent = `Wins with ${winners[0].score.totalScore} points.`
+    return
+  }
+
+  elements.winnerName.textContent = winners.map((entry) => entry.player.name).join(', ')
+  elements.winnerMeta.textContent = `Shared win at ${winners[0].score.totalScore} points.`
 }
 
 function getElements(root) {
   return {
+    versionEyebrow: root.querySelector('#version-eyebrow'),
+    heroTitle: root.querySelector('#hero-title'),
+    heroCopy: root.querySelector('#hero-copy'),
+    gameVersion: root.querySelector('#game-version'),
+    versionHelpNote: root.querySelector('#version-help-note'),
+    routeDescription: root.querySelector('#route-description'),
+    ticketDescription: root.querySelector('#ticket-description'),
+    bonusTitle: root.querySelector('#bonus-title'),
+    bonusDescription: root.querySelector('#bonus-description'),
+    europeRulesSection: root.querySelector('#europe-rules-section'),
+    japanRulesSection: root.querySelector('#japan-rules-section'),
+    europeStationsField: root.querySelector('#europe-stations-field'),
+    japanBulletField: root.querySelector('#japan-bullet-field'),
+    longestPathField: root.querySelector('#longest-path-field'),
+    bonusToggleTitle: root.querySelector('#bonus-toggle-title'),
+    summaryDescription: root.querySelector('#summary-description'),
+    routeScoreLabel: root.querySelector('#route-score-label'),
+    ticketScoreLabel: root.querySelector('#ticket-score-label'),
+    bonusScoreLabel: root.querySelector('#bonus-score-label'),
+    extraScoreLabel: root.querySelector('#extra-score-label'),
+    winnerLabel: root.querySelector('#winner-label'),
+    standingsBonusLabel: root.querySelector('#standings-bonus-label'),
+    standingsExtraLabel: root.querySelector('#standings-extra-label'),
     playerName: root.querySelector('#player-name'),
     currentPlayerMeta: root.querySelector('#current-player-meta'),
     addPlayerButton: root.querySelector('#add-player-button'),
@@ -189,11 +237,12 @@ function getElements(root) {
     ticketEmptyState: root.querySelector('#ticket-empty-state'),
     longestPath: root.querySelector('#longest-path'),
     unusedStations: root.querySelector('#unused-stations'),
+    bulletTrainProgress: root.querySelector('#bullet-train-progress'),
     resetButton: root.querySelector('#reset-button'),
     routeScore: root.querySelector('#route-score'),
     ticketScore: root.querySelector('#ticket-score'),
     bonusScore: root.querySelector('#bonus-score'),
-    stationScore: root.querySelector('#station-score'),
+    extraScore: root.querySelector('#extra-score'),
     totalScore: root.querySelector('#total-score'),
     ticketSummary: root.querySelector('#ticket-summary'),
     winnerName: root.querySelector('#winner-name'),
@@ -215,9 +264,12 @@ function resetPlayer(player) {
   player.routeCounts = freshPlayer.routeCounts
   player.tickets = freshPlayer.tickets
   player.longestPath = freshPlayer.longestPath
+  player.unusedStations = freshPlayer.unusedStations
+  player.bulletTrainProgress = freshPlayer.bulletTrainProgress
 }
 
 function replaceState(state, nextState) {
+  state.gameVersion = nextState.gameVersion
   state.players = nextState.players
   state.currentPlayerId = nextState.currentPlayerId
 }
@@ -233,9 +285,10 @@ export function initApp(root) {
   function rerender() {
     const currentPlayer = getCurrentPlayer(state)
 
+    renderVersionUi(elements, state)
     renderPlayerList(elements, state)
     renderTicketList(elements, currentPlayer)
-    renderScore(elements, currentPlayer)
+    renderScore(elements, state, currentPlayer)
     renderStandings(elements, state)
     renderWinner(elements, state)
     saveStoredState(state)
@@ -245,6 +298,25 @@ export function initApp(root) {
     state.currentPlayerId = nextPlayerId
     const currentPlayer = getCurrentPlayer(state)
     loadPlayerIntoForm(elements, currentPlayer)
+    rerender()
+  }
+
+  function startFreshGame(gameVersion = state.gameVersion) {
+    replaceState(state, createInitialState(gameVersion))
+    playerId = getMaxPlayerId(state.players)
+    ticketId = 0
+    clearStoredState(gameVersion)
+    loadPlayerIntoForm(elements, getCurrentPlayer(state))
+    syncRouteCounts(elements, getCurrentPlayer(state))
+    rerender()
+  }
+
+  function loadSavedGame(gameVersion) {
+    replaceState(state, loadStoredStateForVersion(gameVersion))
+    playerId = getMaxPlayerId(state.players)
+    ticketId = getMaxTicketId(state.players)
+    loadPlayerIntoForm(elements, getCurrentPlayer(state))
+    syncRouteCounts(elements, getCurrentPlayer(state))
     rerender()
   }
 
@@ -264,6 +336,13 @@ export function initApp(root) {
     rerender()
   })
 
+  elements.gameVersion.addEventListener('change', () => {
+    const nextVersion = Object.values(GAME_VERSIONS).includes(elements.gameVersion.value)
+      ? elements.gameVersion.value
+      : DEFAULT_GAME_VERSION
+    loadSavedGame(nextVersion)
+  })
+
   elements.addPlayerButton.addEventListener('click', () => {
     playerId += 1
     state.players.push(createEmptyPlayer(playerId))
@@ -273,15 +352,7 @@ export function initApp(root) {
   })
 
   elements.newGameButton.addEventListener('click', () => {
-    const freshState = createInitialState()
-
-    replaceState(state, freshState)
-    playerId = getMaxPlayerId(state.players)
-    ticketId = 0
-    clearStoredState()
-    loadPlayerIntoForm(elements, getCurrentPlayer(state))
-    syncRouteCounts(elements, getCurrentPlayer(state))
-    rerender()
+    startFreshGame(state.gameVersion)
   })
 
   elements.playerList.addEventListener('click', (event) => {
@@ -359,6 +430,12 @@ export function initApp(root) {
     const nextValue = sanitizeNumberInput(elements.unusedStations)
     currentPlayer.unusedStations = Math.min(3, nextValue)
     elements.unusedStations.value = String(currentPlayer.unusedStations)
+    rerender()
+  })
+
+  elements.bulletTrainProgress.addEventListener('input', () => {
+    const currentPlayer = getCurrentPlayer(state)
+    currentPlayer.bulletTrainProgress = sanitizeNumberInput(elements.bulletTrainProgress)
     rerender()
   })
 
