@@ -1,9 +1,11 @@
 import { DEFAULT_GAME_VERSION } from './gameVersions.js'
+import { DEFAULT_PLAYER_COLOR } from './playerColors.js'
 
-export function createEmptyPlayer(id, name = `Player ${id}`) {
+export function createEmptyPlayer(id, name = `Player ${id}`, color = DEFAULT_PLAYER_COLOR) {
   return {
     id,
     name,
+    color,
     routeCounts: {
       1: 0,
       2: 0,

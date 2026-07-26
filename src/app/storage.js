@@ -1,5 +1,6 @@
 import { createEmptyPlayer, createInitialState } from '../game/initialState.js'
 import { DEFAULT_GAME_VERSION, GAME_VERSIONS } from '../game/gameVersions.js'
+import { DEFAULT_PLAYER_COLOR, getNextAvailablePlayerColor, getPlayerColorConfig } from '../game/playerColors.js'
 
 const STORAGE_KEY_PREFIX = 'ticket-to-ride-score-state'
 const ACTIVE_VERSION_KEY = 'ticket-to-ride-active-version'
@@ -8,13 +9,26 @@ function getStorageKey(gameVersion) {
   return `${STORAGE_KEY_PREFIX}:${gameVersion}`
 }
 
-function normalizePlayer(player, index) {
+function normalizePlayerColor(playerColor, usedColors) {
+  if (typeof playerColor === 'string' && getPlayerColorConfig(playerColor).value === playerColor && !usedColors.has(playerColor)) {
+    usedColors.add(playerColor)
+    return playerColor
+  }
+
+  const fallbackColor = getNextAvailablePlayerColor(usedColors)
+  usedColors.add(fallbackColor)
+  return fallbackColor
+}
+
+function normalizePlayer(player, index, usedColors) {
   const fallbackId = index + 1
+  const color = normalizePlayerColor(player?.color, usedColors)
 
   return {
-    ...createEmptyPlayer(player?.id ?? fallbackId, player?.name || `Player ${player?.id ?? fallbackId}`),
+    ...createEmptyPlayer(player?.id ?? fallbackId, player?.name || `Player ${player?.id ?? fallbackId}`, color),
     id: Number.isInteger(player?.id) ? player.id : fallbackId,
     name: typeof player?.name === 'string' && player.name.trim() ? player.name.trim() : `Player ${player?.id ?? fallbackId}`,
+    color,
     routeCounts: {
       1: Number.parseInt(player?.routeCounts?.[1] ?? player?.routeCounts?.['1'] ?? 0, 10) || 0,
       2: Number.parseInt(player?.routeCounts?.[2] ?? player?.routeCounts?.['2'] ?? 0, 10) || 0,
@@ -53,7 +67,8 @@ function normalizeState(savedState) {
     return fallbackState
   }
 
-  const players = savedState.players.map(normalizePlayer)
+  const usedColors = new Set()
+  const players = savedState.players.map((player, index) => normalizePlayer(player, index, usedColors))
   const currentPlayerExists = players.some((player) => player.id === savedState.currentPlayerId)
 
   return {

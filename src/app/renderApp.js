@@ -1,6 +1,7 @@
 import { calculateFinalScore, getItalyRegionBonusForCount, getWinningPlayers } from '../game/calculateScore.js'
 import { DEFAULT_GAME_VERSION, GAME_VERSIONS, getVersionConfig } from '../game/gameVersions.js'
 import { createEmptyPlayer, createInitialState } from '../game/initialState.js'
+import { DEFAULT_PLAYER_COLOR, PLAYER_COLORS, getNextAvailablePlayerColor, getPlayerColorConfig } from '../game/playerColors.js'
 import { clearStoredState, loadStoredState, loadStoredStateForVersion, saveStoredState } from './storage.js'
 import { createAppTemplate } from './template.js'
 
@@ -38,6 +39,34 @@ function getMaxItalyNetworkId(players) {
 
 function formatPlayerCount(count) {
   return `${count} player${count === 1 ? '' : 's'}`
+}
+
+function getPlayerChipStyle(color) {
+  const colorConfig = getPlayerColorConfig(color)
+
+  return `--player-chip-bg: ${colorConfig.background}; --player-chip-fg: ${colorConfig.contrast}; --player-chip-overlay: ${colorConfig.overlay};`
+}
+
+function renderPlayerColorPicker(elements, state) {
+  const currentPlayer = getCurrentPlayer(state)
+  const usedColors = new Set(state.players.filter((player) => player.id !== currentPlayer.id).map((player) => player.color))
+
+  elements.playerColorPicker.innerHTML = PLAYER_COLORS.map((colorConfig) => {
+    const isSelected = currentPlayer.color === colorConfig.value
+    const isDisabled = usedColors.has(colorConfig.value) && !isSelected
+
+    return `
+      <button
+        class="player-color-picker__swatch ${isSelected ? 'player-color-picker__swatch--selected' : ''}"
+        type="button"
+        data-player-color="${colorConfig.value}"
+        aria-label="${colorConfig.label}"
+        title="${colorConfig.label}"
+        style="--player-swatch-bg: ${colorConfig.background}; --player-swatch-fg: ${colorConfig.contrast};"
+        ${isDisabled ? 'disabled' : ''}
+      ></button>
+    `
+  }).join('')
 }
 
 function loadPlayerIntoForm(elements, player) {
@@ -88,13 +117,18 @@ function renderVersionUi(elements, state) {
 
 function renderPlayerList(elements, state) {
   elements.playerCount.textContent = formatPlayerCount(state.players.length)
+  elements.addPlayerButton.disabled = state.players.length >= PLAYER_COLORS.length
   elements.playerList.innerHTML = state.players
     .map(
-      (player, index) => `
-        <div class="player-chip ${player.id === state.currentPlayerId ? 'player-chip--active' : ''}">
-          <button class="player-chip__main" type="button" data-player-id="${player.id}">
+      (player, index) => {
+        const isActive = player.id === state.currentPlayerId
+
+        return `
+        <div class="player-chip ${isActive ? 'player-chip--active' : ''}" style="${getPlayerChipStyle(player.color)}">
+          <button class="player-chip__main" type="button" data-player-id="${player.id}" ${isActive ? 'aria-current="true"' : ''}>
             <span class="player-chip__order">${index + 1}</span>
             <span>${player.name}</span>
+            ${isActive ? '<span class="player-chip__badge">Active</span>' : ''}
           </button>
           <button
             class="player-chip__remove"
@@ -106,7 +140,8 @@ function renderPlayerList(elements, state) {
             <span aria-hidden="true">&#215;</span>
           </button>
         </div>
-      `,
+      `
+      },
     )
     .join('')
 }
@@ -306,6 +341,7 @@ function getElements(root) {
     standingsExtraHeader: root.querySelector('#standings-extra-header'),
     standingsBody: root.querySelector('#standings-body'),
     routeInputs: [...root.querySelectorAll('[data-route-length]')],
+    playerColorPicker: root.querySelector('#player-color-picker'),
   }
 }
 
@@ -316,7 +352,7 @@ function syncRouteCounts(elements, player) {
 }
 
 function resetPlayer(player) {
-  const freshPlayer = createEmptyPlayer(player.id, player.name)
+  const freshPlayer = createEmptyPlayer(player.id, player.name, player.color)
 
   player.routeCounts = freshPlayer.routeCounts
   player.tickets = freshPlayer.tickets
@@ -346,6 +382,7 @@ export function initApp(root) {
 
     renderVersionUi(elements, state)
     renderPlayerList(elements, state)
+    renderPlayerColorPicker(elements, state)
     renderTicketList(elements, currentPlayer)
     renderItalyNetworkList(elements, currentPlayer)
     renderScore(elements, state, currentPlayer)
@@ -406,8 +443,12 @@ export function initApp(root) {
   })
 
   elements.addPlayerButton.addEventListener('click', () => {
+    if (state.players.length >= PLAYER_COLORS.length) {
+      return
+    }
+
     playerId += 1
-    state.players.push(createEmptyPlayer(playerId))
+    state.players.push(createEmptyPlayer(playerId, undefined, getNextAvailablePlayerColor(state.players.map((player) => player.color))))
     switchToPlayer(playerId)
     elements.playerName.focus()
     elements.playerName.select()
@@ -433,6 +474,18 @@ export function initApp(root) {
     }
 
     switchToPlayer(Number.parseInt(button.dataset.playerId, 10))
+  })
+
+  elements.playerColorPicker.addEventListener('click', (event) => {
+    const button = event.target.closest('[data-player-color]')
+
+    if (!button || button.disabled) {
+      return
+    }
+
+    const currentPlayer = getCurrentPlayer(state)
+    currentPlayer.color = button.dataset.playerColor
+    rerender()
   })
 
   elements.ticketForm.addEventListener('submit', (event) => {

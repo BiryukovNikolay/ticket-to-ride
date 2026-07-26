@@ -14,6 +14,22 @@ function buildRouteInputs() {
     .join('')
 }
 
+function buildPlayerColorPicker() {
+  return ['black', 'yellow', 'red', 'green', 'blue']
+    .map(
+      (color) => `
+        <button
+          class="player-color-picker__swatch"
+          type="button"
+          data-player-color="${color}"
+          aria-label="${color}"
+          title="${color}"
+        ></button>
+      `,
+    )
+    .join('')
+}
+
 export function createAppTemplate() {
   return `
     <div class="page-shell">
@@ -51,7 +67,15 @@ export function createAppTemplate() {
             <span>Current Player Name</span>
             <input id="player-name" name="playerName" type="text" maxlength="40" placeholder="Player name" />
           </label>
-          <p class="player-editor__meta" id="current-player-meta">Editing Player 1</p>
+          <div class="player-editor__side">
+            <p class="player-editor__meta" id="current-player-meta">Editing Player 1</p>
+            <div class="player-editor__color">
+              <span>Player Color</span>
+              <div class="player-color-picker" id="player-color-picker" role="group" aria-label="Choose player color">
+                ${buildPlayerColorPicker()}
+              </div>
+            </div>
+          </div>
         </div>
 
         <div class="player-switcher">
