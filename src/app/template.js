@@ -124,7 +124,7 @@ export function createAppTemplate() {
             <label class="toggle-row" id="longest-path-field" for="longest-path">
               <div>
                 <strong id="bonus-toggle-title">Longest Route</strong>
-                <p>Add the ${LONGEST_PATH_BONUS}-point bonus.</p>
+                <p>Add the ${LONGEST_PATH_BONUS}-point bonus. Only one player can hold it at a time in Europe.</p>
               </div>
               <input id="longest-path" type="checkbox" />
             </label>

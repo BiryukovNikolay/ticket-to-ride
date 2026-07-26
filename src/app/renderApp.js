@@ -517,7 +517,16 @@ export function initApp(root) {
   })
 
   elements.longestPath.addEventListener('change', () => {
-    getCurrentPlayer(state).longestPath = elements.longestPath.checked
+    const currentPlayer = getCurrentPlayer(state)
+
+    if (state.gameVersion === GAME_VERSIONS.EUROPE && elements.longestPath.checked) {
+      state.players.forEach((player) => {
+        player.longestPath = player.id === currentPlayer.id
+      })
+    } else {
+      currentPlayer.longestPath = elements.longestPath.checked
+    }
+
     rerender()
   })
 
